@@ -20,6 +20,15 @@ public class CreatureBrain : MonoBehaviour {
     public void Parse(string input){
         var words = input.Split(' ');
         for(int i = 0; i < words.Length; i++) {
+            var e = new Event(
+                "KeywordRecognized",
+                new Dictionary<string, System.Object>() {
+                    { "keyword", words[i] },
+                    { "fullPhrase", words }
+                }
+            );
+            EventManager.FireEvent(e);
+
             if( verbs.Contains(words[i]) ) {
                 switch (words[i]) {
                     case "follow":
