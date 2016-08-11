@@ -11,13 +11,10 @@ public class Location : System.Object {
 
 public class CreatureBrain : MonoBehaviour {
     public List<Location> locations = new List<Location>();
-    public List<string> verbs = new List<string>(){
-        "follow",
-        "goto",
-    };
 
     private UnityStandardAssets.Characters.ThirdPerson.AICharacterControl aicc;
 
+    #region OpenNLP_Helpers
     public string mModelPath = ".\\";
 
     private OpenNLP.Tools.SentenceDetect.MaximumEntropySentenceDetector mSentenceDetector;
@@ -40,8 +37,15 @@ public class CreatureBrain : MonoBehaviour {
         if (mTokenizer == null) {
             mTokenizer = new OpenNLP.Tools.Tokenize.EnglishMaximumEntropyTokenizer(mModelPath + "EnglishTok.nbin");
         }
-
         return mTokenizer.Tokenize(sentence);
+    }
+
+    private OpenNLP.Tools.Util.Span[] PosTokenizeSentence(string sentence) {
+        if (mTokenizer == null) {
+            mTokenizer = new OpenNLP.Tools.Tokenize.EnglishMaximumEntropyTokenizer(mModelPath + "EnglishTok.nbin");
+        }
+
+        return mTokenizer.TokenizePositions(sentence);
     }
 
     private string[] PosTagTokens(string[] tokens) {
@@ -58,6 +62,14 @@ public class CreatureBrain : MonoBehaviour {
         }
 
         return mChunker.GetChunks(tokens, tags);
+    }
+
+    private string[] ExChunkSentence(OpenNLP.Tools.Util.Span[] tokens, string[] tags) {
+        if (mChunker == null) {
+            mChunker = new OpenNLP.Tools.Chunker.EnglishTreebankChunker(mModelPath + "EnglishChunk.nbin");
+        }
+
+        return mChunker.Chunk(tokens, tags);
     }
 
     private OpenNLP.Tools.Parser.Parse ParseSentence(string sentence) {
@@ -100,63 +112,60 @@ public class CreatureBrain : MonoBehaviour {
         }
         return mCoreferenceFinder.GetCoreferenceParse(parsedSentences.ToArray());
     }
+    #endregion OpenNLP_Helpers
 
-    public void AdvancedParse(string input) {
-        var tokens = TokenizeSentence(input);
-        Debug.Log("TOKENS: " + string.Join(",", tokens));
-        var tags = PosTagTokens(tokens);
-        Debug.Log("TAGS: " + string.Join(",", tags));
-        var chunks = ChunkSentence(tokens, tags);
-        Debug.Log("CHUNKS: " + chunks);
-        /*
-        if ( g != null ) {
-            var w = g.GetChildren();
-            
+    private static string UppercaseFirst(string s) {
+        if (string.IsNullOrEmpty(s)) {
+            return string.Empty;
         }
-        */
+        char[] a = s.ToCharArray();
+        a[0] = char.ToUpper(a[0]);
+        return new string(a);
     }
 
     public void Parse(string input){
-        AdvancedParse(input);
-        var words = input.Split(' ');
-        for(int i = 0; i < words.Length; i++) {
-            var e = new Event(
-                "KeywordRecognized",
-                new Dictionary<string, System.Object>() {
-                    { "keyword", words[i] },
-                    { "fullPhrase", words }
-                }
-            );
-            EventManager.FireEvent(e);
-
-            if( verbs.Contains(words[i]) ) {
-                switch (words[i]) {
-                    case "follow":
-                    case "goto":
-                        var target = FindLocation(words[i + 1]);
-                        if( target != null && target.pos != null ) {
-                            Follow(target.pos);
-                        }
-                        break;
-                    default:
-                        Debug.LogWarningFormat("Brain understood a verb it could not complete: {0}.", words[i]);
-                        break;
-                }
-                    
-            }
+        var tokens = TokenizeSentence(input);
+        var tags = PosTagTokens(tokens);
+        var posTokens = PosTokenizeSentence(input);
+        var chunks = ChunkSentence(tokens, tags);
+        var exchunks = ExChunkSentence(posTokens, tags);
+        Debug.Log("CHUNKS: " + chunks);
+        foreach (string exchunk in exchunks) {
+            Debug.Log("EXCHUNK: " + exchunk);
         }
+
+        var e = new Event(
+            "BrainParse",
+            new Dictionary<string, System.Object>() {
+                { "tokens", tokens },
+                { "tags", tags },
+                { "chunks", chunks },
+                { "fullPhrase", input }
+            }
+        );
+        EventManager.Fire(e);
     }
 
     public Location FindLocation(string name) {
-        foreach( Location location in locations ) {
-            if( location.names.Contains(name) ) {
+        foreach (Location location in locations) {
+            if (location.names.Contains(name)) {
                 return location;
             }
         }
         return null;
     }
 
-    void Follow(Transform target) {
+    public Location FindLocation(List<string> names) {
+        foreach( string name in names) {
+            var ploc = FindLocation(name);
+            if( ploc != null) {
+                return ploc;
+            }
+        }
+        return null;
+    }
+
+    public void Follow(Transform target) {
         aicc.target = target;
     }
 

@@ -1,25 +1,25 @@
 using UnityEngine;
 using System.Collections;
+using System.Collections.Generic;
 
 public class SignalBehavior : MonoBehaviour {
+    public Dictionary<string, System.Action<Event>> subscribedEvents;
+
+    public virtual void Awake() {
+        subscribedEvents = new Dictionary<string, System.Action<Event>>(){
+            //{ "Honk", E => FireEvent(E) }
+        };
+    }
 
     public virtual void OnEnable() {
-        EventManager.OnFireEvent += FireEvent;
+        foreach(KeyValuePair<string, System.Action<Event>> subEvent in subscribedEvents) {
+            EventManager.Add(subEvent.Key, subEvent.Value);
+        }
     }
 
     public virtual void OnDisable() {
-        EventManager.OnFireEvent -= FireEvent;
-    }
-
-    public virtual bool FireEvent(Event E) {
-        if( E.doHandle ) {
-            return ProcessEvent(E);
+        foreach (KeyValuePair<string, System.Action<Event>> subEvent in subscribedEvents) {
+            EventManager.Remove(subEvent.Key, subEvent.Value);
         }
-
-        return false;
-    }
-
-    public virtual bool ProcessEvent(Event E){
-        return false;
     }
 }

@@ -5,14 +5,17 @@ using System.Collections.Generic;
 public class NameListener : SignalBehavior {
     public string myName;
 
-    public override bool ProcessEvent(Event E) {
-        /*
-        foreach(KeyValuePair<string, System.Object> arg in E.args) {
-            Debug.Log(arg.Key + ": " + arg.Value);
-        }
-        */
-        if ( E.id == "KeywordRecognized" && ( (string)E.args["keyword"] == myName ) ) {
-            Debug.Log("I heard my name ("+myName+") , what do you want?!");
+    public override void Awake() {
+        subscribedEvents = new Dictionary<string, System.Action<Event>>(){
+            { "BrainParse", E => BrainParse(E) }
+        };
+    }
+
+    public bool BrainParse(Event E) {
+        var tokens = (string[])E.args["tokens"];
+        var tlist = new List<string>(tokens);
+        if (E.doHandle && tlist.Contains(myName)) {
+            Debug.Log("I heard my name (" + myName + ") , what do you want?!");
             E.doHandle = false;
             return true;
         }
